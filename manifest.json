@@ -1,0 +1,17 @@
+{
+  "name": "Solar Monitor",
+  "short_name": "Solar",
+  "description": "Real-time solar monitoring dashboard",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a0f1e",
+  "theme_color": "#0a0f1e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://api.iconify.design/twemoji:sun.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
