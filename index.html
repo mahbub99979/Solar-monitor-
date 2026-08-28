@@ -1,1 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0c0818">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Solar Monitor">
+<title>Solar Monitor</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
+  :root {
+    --bg:      #0c0818;
+    --surface: #171224;
+    --border:  rgba(255,255,255,0.08);
+    --solar:   #ffa726; --solar-2: #ffd54f;
+    --load:    #ff4d6d; --load-2:  #ff8fa3;
+    --batt:    #22d3ee; --batt-2:  #60a5fa;
+    --purple:  #a78bfa;
+    --soc-high:#34d399; --soc-mid: #ffb020; --soc-low: #ff4d6d;
+    --text:    #f8fafc; --muted: #97a0b8;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  body {
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+    /* static colourful gradient — no blur, no animation, painted once */
+    background:
+      radial-gradient(600px circle at 8% -8%,  rgba(255,167,38,.20), transparent 60%),
+      radial-gradient(620px circle at 105% 12%, rgba(34,211,238,.16), transparent 60%),
+      radial-gradient(480px circle at -8% 55%,  rgba(167,139,250,.14), transparent 60%),
+      radial-gradient(460px circle at 38% 108%, rgba(52,211,153,.14), transparent 60%),
+      var(--bg);
+  }
+
+  .icon { width:20px; height:20px; stroke:currentColor; stroke-width:1.8; fill:none; stroke-linecap:round; stroke-linejoin:round; display:block; }
+
+  /* ── Header ── */
+  header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 20px 12px;
+    background: rgba(12,8,24,0.92);
+    border-bottom:1px solid var(--border);
+    position:sticky; top:0; z-index:10;
+  }
+  .logo { display:flex; align-items:center; gap:10px; }
+  .logo-icon {
+    width:36px; height:36px; border-radius:11px;
+    display:flex; align-items:center; justify-content:center; color:#1a0f00;
+    background: linear-gradient(135deg, var(--solar), var(--load), var(--purple), var(--batt));
+    background-size:300% 300%;
+    animation: gradientShift 7s ease infinite;
+  }
+  @keyframes gradientShift { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+  .logo-icon .icon { width:20px; height:20px; stroke-width:2; }
+  .logo-text { font-size:16px; font-weight:700; letter-spacing:-.3px; }
+  .logo-sub  { font-size:10px; color:var(--muted); font-family:'Space Mono',monospace; }
+
+  .status-pill {
+    display:flex; align-items:center; gap:6px;
+    background: rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:20px;
+    padding:6px 12px; font-size:11px; font-family:'Space Mono',monospace;
+  }
+  .dot { width:7px; height:7px; border-radius:50%; background:var(--muted); transition:background .4s; }
+  .dot.online  { background:var(--soc-high); box-shadow:0 0 6px var(--soc-high); animation:pulse 2s infinite; }
+  .dot.offline { background:var(--load); }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+  main { padding:16px; display:flex; flex-direction:column; gap:14px; }
+  main > * { animation: popIn .5s ease both; }
+  main > *:nth-child(1){animation-delay:.02s;} main > *:nth-child(2){animation-delay:.06s;}
+  main > *:nth-child(3){animation-delay:.10s;} main > *:nth-child(4){animation-delay:.14s;}
+  main > *:nth-child(5){animation-delay:.18s;} main > *:nth-child(6){animation-delay:.22s;}
+  @keyframes popIn { from{opacity:0; transform:translateY(12px);} to{opacity:1; transform:translateY(0);} }
+
+  /* plain solid-ish cards — no blur, no backdrop-filter */
+  .panel { background: var(--surface); border:1px solid var(--border); border-radius:18px; position:relative; overflow:hidden; }
+  .panel::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+
+  /* ── SOC Hero ── */
+  .soc-card { padding:24px 20px; display:flex; align-items:center; gap:20px;
+    background: linear-gradient(160deg, rgba(255,167,38,.10), var(--surface) 55%);
+  }
+  .soc-card::before { background: linear-gradient(90deg, var(--solar), var(--soc-high)); }
+  .ring-wrap { position:relative; width:112px; height:112px; flex-shrink:0; }
+  .ring-svg { width:112px; height:112px; transform:rotate(-90deg); }
+  .ring-bg   { fill:none; stroke:rgba(255,255,255,.08); stroke-width:8; }
+  .ring-fill { fill:none; stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset .8s ease; }
+  .ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .ring-val  { font-size:28px; font-weight:700; font-family:'Space Mono',monospace; line-height:1; }
+  .ring-unit { font-size:10px; color:var(--muted); margin-top:2px; letter-spacing:.5px; }
+
+  .soc-info { flex:1; }
+  .soc-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:4px; }
+  .soc-status { font-size:17px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:7px; }
+  .soc-status-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .soc-bar-wrap { background:rgba(255,255,255,.08); border-radius:6px; height:6px; overflow:hidden; }
+  .soc-bar { height:100%; border-radius:6px; transition:width .8s ease, background .5s; }
+
+  /* ── Voltage strip ── */
+  .volt-card { padding:16px; display:flex; align-items:center; justify-content:space-between;
+    background: linear-gradient(160deg, rgba(34,211,238,.10), var(--surface) 55%);
+  }
+  .volt-card::before { background: linear-gradient(90deg, var(--batt), var(--batt-2)); }
+  .volt-left { display:flex; align-items:center; gap:12px; }
+  .volt-icon { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(135deg, var(--batt-2), var(--batt)); color:#001a22; }
+  .volt-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:2px; }
+  .volt-time { font-size:11px; color:var(--muted); font-family:'Space Mono',monospace; }
+  .volt-val { font-size:26px; font-weight:700; font-family:'Space Mono',monospace;
+    background: linear-gradient(135deg, var(--batt-2), var(--batt)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .volt-unit { font-size:13px; color:var(--muted); font-weight:400; -webkit-text-fill-color:var(--muted); }
+
+  /* ── Solar / Load grid ── */
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .card { padding:16px; }
+  .card.solar { background: linear-gradient(160deg, rgba(255,167,38,.12), var(--surface) 55%); }
+  .card.solar::before { background: var(--solar); }
+  .card.load  { background: linear-gradient(160deg, rgba(255,77,109,.12), var(--surface) 55%); }
+  .card.load::before  { background: var(--load); }
+
+  .card-icon { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
+  .card.solar .card-icon { background:linear-gradient(135deg, var(--solar-2), var(--solar)); color:#241100; }
+  .card.load  .card-icon { background:linear-gradient(135deg, var(--load-2), var(--load)); color:#2a0009; }
+
+  .icon-sun .sun-rays { transform-origin:12px 12px; animation:sunSpin 14s linear infinite; animation-play-state:paused; }
+  .card.solar.active .icon-sun .sun-rays { animation-play-state:running; }
+  @keyframes sunSpin { to { transform:rotate(360deg); } }
+  .card.load.active .icon-bolt { animation:boltFlicker 1.5s ease-in-out infinite; }
+  @keyframes boltFlicker { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+
+  .card-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  .card-dual { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
+  .card-val { font-size:25px; font-weight:700; font-family:'Space Mono',monospace; line-height:1; }
+  .card.solar .card-val { background:linear-gradient(135deg, var(--solar-2), var(--solar)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .card.load  .card-val { background:linear-gradient(135deg, var(--load-2), var(--load));  -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .card-unit { font-size:11px; color:var(--muted); }
+  .card-sub { margin-top:6px; font-size:12px; color:var(--muted); font-family:'Space Mono',monospace; }
+
+  /* ── Energy flow ── */
+  .flow-card { padding:18px 16px; background: linear-gradient(160deg, rgba(167,139,250,.10), var(--surface) 55%); }
+  .flow-card::before { background: linear-gradient(90deg, var(--solar), var(--purple), var(--batt)); }
+  .flow-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:16px; }
+  .flow-row { display:flex; align-items:center; }
+  .flow-node { display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0; }
+  .flow-node-icon { width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; }
+  .flow-node-icon.sun  { background:linear-gradient(135deg,var(--solar-2),var(--solar)); color:#241100; }
+  .flow-node-icon.batt { background:linear-gradient(135deg,var(--batt-2),var(--batt)); color:#001a22; }
+  .flow-node-icon.house{ background:linear-gradient(135deg,var(--purple),#7c6ee0); color:#160f3a; }
+  .flow-node-name { font-size:10px; color:var(--muted); }
+
+  .flow-track { position:relative; flex:1; height:2px; background:rgba(255,255,255,.08); margin:0 6px; border-radius:2px; top:-13px; }
+  .flow-dot { position:absolute; top:50%; width:7px; height:7px; margin-top:-3.5px; border-radius:50%; opacity:0; }
+  .flow-track.flow-idle .flow-dot { background:var(--muted); animation:idlePulse 2.4s ease-in-out infinite; }
+  .flow-track.flow-idle .flow-dot:nth-child(1){ left:46%; animation-delay:0s; }
+  .flow-track.flow-idle .flow-dot:nth-child(2){ display:none; }
+  .flow-track.flow-idle .flow-dot:nth-child(3){ display:none; }
+  @keyframes idlePulse { 0%,100%{opacity:.18;} 50%{opacity:.5;} }
+
+  .flow-track.flow-active-right .flow-dot { background:var(--soc-high); box-shadow:0 0 6px var(--soc-high); animation:flowRight var(--flow-duration,1.6s) linear infinite; display:block; }
+  .flow-track.flow-active-left  .flow-dot { background:var(--load); box-shadow:0 0 6px var(--load); animation:flowLeft  var(--flow-duration,1.6s) linear infinite; display:block; }
+  .flow-dot:nth-child(1){animation-delay:0s;}
+  .flow-dot:nth-child(2){animation-delay:calc(var(--flow-duration,1.6s) / 3);}
+  .flow-dot:nth-child(3){animation-delay:calc(var(--flow-duration,1.6s) / 3 * 2);}
+  @keyframes flowRight { 0%{left:-2%;opacity:0;} 10%{opacity:1;} 90%{opacity:1;} 100%{left:100%;opacity:0;} }
+  @keyframes flowLeft  { 0%{left:100%;opacity:0;} 10%{opacity:1;} 90%{opacity:1;} 100%{left:-2%;opacity:0;} }
+
+  .flow-status { margin-top:14px; text-align:center; font-family:'Space Mono',monospace; font-size:13px; font-weight:700; }
+
+  /* ── Daily Totals ── */
+  .daily-card { padding:16px; background: linear-gradient(160deg, rgba(52,211,153,.10), var(--surface) 55%); }
+  .daily-card::before { background: linear-gradient(90deg, var(--soc-high), var(--batt)); }
+  .daily-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .daily-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+  .reset-btn {
+    background:rgba(255,255,255,.05); border:1px solid var(--border); color:var(--muted);
+    font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:600;
+    padding:6px 12px; border-radius:10px; display:flex; align-items:center; gap:5px; transition:all .2s;
+  }
+  .reset-btn .icon { width:13px; height:13px; }
+  .reset-btn:active { transform:scale(.95); background:var(--load); color:white; border-color:var(--load); }
+
+  .daily-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .daily-item { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06); border-radius:13px; padding:14px; }
+  .daily-item-icon { width:22px; height:22px; margin-bottom:8px; }
+  .daily-item-icon.solar { color:var(--solar); }
+  .daily-item-icon.load { color:var(--load); }
+  .daily-name { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+  .daily-num  { font-size:22px; font-weight:700; font-family:'Space Mono',monospace; }
+  .daily-num.solar { background:linear-gradient(135deg,var(--solar-2),var(--solar)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .daily-num.load  { background:linear-gradient(135deg,var(--load-2),var(--load));  -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .daily-unit { font-size:11px; color:var(--muted); }
+  .daily-bar-track { margin-top:9px; height:4px; background:rgba(255,255,255,.08); border-radius:3px; overflow:hidden; }
+  .daily-bar-fill { height:100%; border-radius:3px; width:0%; transition:width .6s ease; }
+  .daily-bar-fill.solar { background:linear-gradient(90deg,var(--solar),var(--solar-2)); }
+  .daily-bar-fill.load  { background:linear-gradient(90deg,var(--load),var(--load-2)); }
+
+  .net-row { margin-top:12px; padding-top:12px; border-top:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; font-family:'Space Mono',monospace; font-size:13px; }
+  .net-label { color:var(--muted); }
+  .net-val { font-weight:700; }
+
+  .timestamp { text-align:center; font-size:10px; color:var(--muted); font-family:'Space Mono',monospace; padding-bottom:8px; }
+
+  /* ── Overlay ── */
+  .overlay { position:fixed; inset:0; background:rgba(12,8,24,0.96);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:99; transition:opacity .5s; }
+  .overlay.hidden { opacity:0; pointer-events:none; }
+  .overlay-icon { width:44px; height:44px; color:var(--solar); }
+  .overlay-text { font-size:14px; color:var(--muted); }
+  .spinner { width:40px; height:40px; border-radius:50%;
+    background:conic-gradient(from 0deg, var(--solar), var(--load), var(--purple), var(--batt), var(--solar));
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+    mask:radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+    animation:spin .9s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* ── Reset modal ── */
+  .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.65); display:none; align-items:center; justify-content:center; z-index:100; padding:20px; }
+  .modal-backdrop.show { display:flex; }
+  .modal { background:#191428; border:1px solid var(--border); border-radius:18px; padding:22px; max-width:320px; width:100%; }
+  .modal-title { font-size:16px; font-weight:700; margin-bottom:8px; }
+  .modal-text { font-size:13px; color:var(--muted); margin-bottom:18px; line-height:1.4; }
+  .modal-actions { display:flex; gap:10px; }
+  .modal-btn { flex:1; padding:11px; border-radius:10px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13px; border:1px solid var(--border); background:rgba(255,255,255,.05); color:var(--text); }
+  .modal-btn.danger { background:linear-gradient(135deg,var(--load-2),var(--load)); border-color:var(--load); color:#2a0009; }
+
+  .confetti-piece { position:fixed; width:7px; height:7px; border-radius:2px; pointer-events:none; z-index:200; animation:confettiBurst .8s ease-out forwards; }
+  @keyframes confettiBurst { 0%{transform:translate(0,0) scale(1) rotate(0deg); opacity:1;} 100%{transform:translate(var(--tx),var(--ty)) scale(.3) rotate(360deg); opacity:0;} }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay">
+  <svg class="overlay-icon icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><line x1="12" y1="2.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21.5" y2="12"/><line x1="5.1" y1="5.1" x2="6.8" y2="6.8"/><line x1="17.2" y1="17.2" x2="18.9" y2="18.9"/><line x1="5.1" y1="18.9" x2="6.8" y2="17.2"/><line x1="17.2" y1="6.8" x2="18.9" y2="5.1"/></svg>
+  <div class="spinner"></div>
+  <div class="overlay-text">Connecting to Solar Monitor…</div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <div class="modal-title">Reset daily totals?</div>
+    <div class="modal-text">This will reset today's accumulated Solar and Load energy back to 0 Ah. This cannot be undone.</div>
+    <div class="modal-actions">
+      <button class="modal-btn" id="cancelBtn">Cancel</button>
+      <button class="modal-btn danger" id="confirmBtn">Reset</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><line x1="12" y1="2.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21.5" y2="12"/><line x1="5.1" y1="5.1" x2="6.8" y2="6.8"/><line x1="17.2" y1="17.2" x2="18.9" y2="18.9"/><line x1="5.1" y1="18.9" x2="6.8" y2="17.2"/><line x1="17.2" y1="6.8" x2="18.9" y2="5.1"/></svg>
+    </div>
+    <div>
+      <div class="logo-text">Solar Monitor</div>
+      <div class="logo-sub">12V LiFePO4 · 50Ah</div>
+    </div>
+  </div>
+  <div class="status-pill">
+    <div class="dot" id="statusDot"></div>
+    <span id="statusText">Connecting</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- SOC Hero -->
+  <div class="soc-card panel">
+    <div class="ring-wrap">
+      <svg class="ring-svg" viewBox="0 0 110 110">
+        <circle class="ring-bg" cx="55" cy="55" r="46"/>
+        <circle class="ring-fill" cx="55" cy="55" r="46" id="ringFill" stroke="#34d399" stroke-dasharray="289" stroke-dashoffset="289"/>
+      </svg>
+      <div class="ring-center">
+        <div class="ring-val" id="socVal">--</div>
+        <div class="ring-unit">SOC %</div>
+      </div>
+    </div>
+    <div class="soc-info">
+      <div class="soc-label">Battery State</div>
+      <div class="soc-status"><span class="soc-status-dot" id="socStatusDot"></span><span id="socStatusText">Waiting…</span></div>
+      <div class="soc-bar-wrap"><div class="soc-bar" id="socBar" style="width:0%;background:var(--soc-high)"></div></div>
+    </div>
+  </div>
+
+  <!-- Voltage — right under SOC -->
+  <div class="volt-card panel">
+    <div class="volt-left">
+      <div class="volt-icon">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="2.5" y="7" width="16" height="10" rx="2.2"/><rect x="19.5" y="10" width="2" height="4" rx="1" fill="currentColor" stroke="none"/><rect id="battFillIcon" x="4.3" y="8.8" width="10" height="6.4" rx="1" fill="currentColor" stroke="none"/></svg>
+      </div>
+      <div>
+        <div class="volt-label">Battery Voltage</div>
+        <div class="volt-time" id="battTime">--</div>
+      </div>
+    </div>
+    <div class="volt-val"><span id="battV">--</span><span class="volt-unit"> V</span></div>
+  </div>
+
+  <!-- Solar & Load -->
+  <div class="grid">
+    <div class="card solar panel" id="solarCard">
+      <div class="card-icon">
+        <svg class="icon icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><g class="sun-rays"><line x1="12" y1="2.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21.5" y2="12"/><line x1="5.1" y1="5.1" x2="6.8" y2="6.8"/><line x1="17.2" y1="17.2" x2="18.9" y2="18.9"/><line x1="5.1" y1="18.9" x2="6.8" y2="17.2"/><line x1="17.2" y1="6.8" x2="18.9" y2="5.1"/></g></svg>
+      </div>
+      <div class="card-label">Solar Input</div>
+      <div class="c
